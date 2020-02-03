@@ -1,0 +1,352 @@
+%% part 1 
+clc
+clear all
+%% constants
+
+m0 = 9.10938356e-31;
+m = 0.26*m0;
+T = 300;
+k = 1.38064852e-23;
+
+%disp("187 km/hr");
+
+%answers
+VTH = sqrt(2*k*T/m) % formula
+MFP = VTH*0.2;
+disp(MFP)  %% nm
+
+%constants
+H = 100e-9;
+L = 200e-9;
+population_size = 3000;
+Population_toPlot = 5;
+time  = H/VTH/100;
+iterations = 1000;
+Movie_ONOFF = 1;%% movie  =1 or 0 for no movie
+
+
+Matrix1 = zeros(population_size, 4);
+Zeroes = zeros(iterations, Population_toPlot*2);
+Zeroes1 = zeros(iterations,1);   %Zeroes1
+
+
+%  initial population - for figure 1
+
+ for i = 1:population_size
+ angle = 2*pi*rand;
+ Matrix1(i,:) = [L*rand H*rand VTH*cos(angle) VTH*sin(angle)];
+ 
+end
+
+
+
+
+
+ %itertion over time - changes matrix1
+for i = 1:iterations
+Matrix1(:,1:2) = Matrix1(:,1:2) + time.*Matrix1(:,3:4);
+
+
+j = Matrix1(:,1) > L;  
+%greter than length
+Matrix1(j,1) = Matrix1(j,1) - L;
+
+j = Matrix1(:,1) < 0;
+Matrix1(j,1) = Matrix1(j,1) + L;
+
+j = Matrix1(:,2) > H;  %greater than height
+Matrix1(j,2) = 2*H - Matrix1(j,2);
+Matrix1(j,4) = -Matrix1(j,4);
+
+j = Matrix1(:,2) < 0;
+Matrix1(j,2) = -Matrix1(j,2);
+Matrix1(j,4) = -Matrix1(j,4);
+
+Zeroes1(i) = (sum(Matrix1(:,3).^2) + sum(Matrix1(:,4).^2))*m/k/2/population_size;
+
+% Record the Zeroes
+ for j=1:Population_toPlot
+ Zeroes(i, (2*j):(2*j+1)) = Matrix1(j, 1:2);
+end
+
+% create movie every 5 changes
+
+ if Movie_ONOFF && mod(i,5) == 0
+ figure(1);
+ subplot(2,1,1);
+ hold off;
+ plot(Matrix1(1:Population_toPlot,1)./1e-9, Matrix1(1:Population_toPlot,2)./1e-9, 'O');
+ axis([0 L/1e-9 0 H/1e-9]);
+ title(sprintf('Zeroes for %d of %d Electrons with Fixed Velocity (Part 1)',Population_toPlot, population_size));
+ xlabel(' x -(nm)');
+ ylabel(' y - (nm)');
+
+if i > 1
+	subplot(2,1,2);
+	hold off;
+	plot(time *(0:i-1), Zeroes1(1:i));
+	axis([0 time *iterations min(Zeroes1)*0.98 max(Zeroes1)*1.02]);
+	title('Semiconductor');
+	xlabel('Time (s)');
+	ylabel('Temp  (K)');
+ end
+ pause(0.02);
+ end
+end
+
+% Figure 1 shows movement of electrons with constant velocity,along with Time vs temperature graph.
+figure(1);
+subplot(2,1,1);
+title(sprintf('Electron Zeroes for %d of %d Electrons with Fixed Velocity (Part 1)',...
+Population_toPlot, population_size));
+xlabel('x (nm)');
+ylabel('y (nm)');
+axis([0 L/1e-9 0 H/1e-9]);
+hold on;
+
+for i=1:Population_toPlot
+ plot(Zeroes(:,i*2)./1e-9, Zeroes(:,i*2+1)./1e-9, '.');
+end
+
+if(~Movie_ONOFF)
+subplot(2,1,2);
+hold off;
+plot(time *(0:iterations-1), Zeroes1);
+axis([0 time *iterations min(Zeroes1)*0.98 max(Zeroes1)*1.02]);
+title(' N-type Si semiconductor crystal@ 300K');
+ xlabel('Time (s)');
+ ylabel(' (K)');
+end
+
+
+
+%% Part 2: Collisions with Mean Free Path
+% Maxwell-Boltzmann distribution
+
+p_scat = 1 - exp(-time /0.2e-12)
+
+
+
+
+%  creates a probability distribution object for the distribution distname, using the default parameter values.
+
+v_pdf = makedist('Normal', 'mu', 0, 'sigma', sqrt(k*T/m));
+%% e.g pd = makedist(distname,Name,Value)
+for i = 1:population_size
+	angle = rand*2*pi;
+	Matrix1(i,:) = [L*rand H*rand random(v_pdf) random(v_pdf)];
+end
+
+
+% The average velocity should be calculated :
+avg_v = sqrt(sum(Matrix1(:,3).^2)/population_size + ...
+sum(Matrix1(:,4).^2)/population_size)
+
+
+
+ for i = 1:iterations
+%Update positions
+ Matrix1(:,1:2) = Matrix1(:,1:2) + time .*Matrix1(:,3:4);
+
+ j = Matrix1(:,1) > L;
+ Matrix1(j,1) = Matrix1(j,1) - L;
+
+ j = Matrix1(:,1) < 0;
+Matrix1(j,1) = Matrix1(j,1) + L;
+
+j = Matrix1(:,2) > H;
+Matrix1(j,2) = 2*H - Matrix1(j,2);
+Matrix1(j,4) = -Matrix1(j,4);
+
+j = Matrix1(:,2) < 0;
+Matrix1(j,2) = -Matrix1(j,2);
+Matrix1(j,4) = -Matrix1(j,4);
+
+% Scatter particles
+j = rand(population_size, 1) < p_scat;
+Matrix1(j,3:4) = random(v_pdf, [sum(j),2]);
+
+% Record the Zeroes1
+Zeroes1(i) = (sum(Matrix1(:,3).^2) + sum(Matrix1(:,4).^2))*m/k/2/population_size;
+
+% Record positions for subset of particles that will be graphed
+for j=1:Population_toPlot
+Zeroes(i, (2*j):(2*j+1)) = Matrix1(j, 1:2);
+end
+
+% Update the movie every 5 iterations
+if Movie_ONOFF && mod(i,5) == 0
+figure(2);
+subplot(3,1,1);
+hold on;
+plot(Matrix1(1:Population_toPlot,1)./1e-9, Matrix1(1:Population_toPlot,2)./1e-9, 'o');
+axis([0 L/1e-9 0 H/1e-9]);
+title(sprintf('Zeroes for %d of %d Electrons (Part 2)',...
+Population_toPlot, population_size));
+xlabel(' (nm)');
+ylabel(' (nm)');
+
+if i > 1
+subplot(3,1,2);
+hold off;
+plot(time *(0:i-1), Zeroes1(1:i));
+axis([0 time *iterations min(Zeroes1)*0.98 max(Zeroes1)*1.02]);
+title('Semiconductor Zeroes1');
+xlabel('Time (s)');
+ylabel('Zeroes1 (K)');
+end
+
+% Show histogram of speeds
+subplot(3,1,3);
+b = sqrt(Matrix1(:,3).^2 + Matrix1(:,4).^2);
+title('Histogram of Electron Speeds');
+histogram(b);
+xlabel('Speed (m/s)');
+ylabel('particles');
+
+pause(0.05);
+end
+end
+
+% Show Zeroes after the movie is over
+figure(2);
+subplot(3,1,1);
+title(sprintf('Zeroes for %d of %d Electrons (Part 2)',...
+Population_toPlot, population_size));
+xlabel('x (nm)');
+ylabel('y (nm)');
+axis([0 L/1e-9 0 H/1e-9]);
+hold on;
+for i=1:Population_toPlot
+plot(Zeroes(:,i*2)./1e-9, Zeroes(:,i*2+1)./1e-9, '.');
+end
+
+
+if(~Movie_ONOFF)
+subplot(3,1,2);
+hold off;
+plot(time *(0:iterations-1), Zeroes1);
+axis([0 time *iterations min(Zeroes1)*0.98 max(Zeroes1)*1.02]);
+title('Semiconductor Zeroes1');
+xlabel('Time (s)');
+ylabel('Zeroes1 (K)');
+end
+
+% Show speed histogram
+subplot(3,1,3);
+b = sqrt(Matrix1(:,3).^2 + Matrix1(:,4).^2);
+title('Histogram of Electron Speeds');
+histogram(b);
+xlabel('Speed (m/s)');
+ylabel('Number of particles');
+
+%% Part 3: Enchancements
+
+% create box as obstacles. 
+
+% create simulation for square. 
+
+%  each box values
+square = 1e-9.*[80 120 0 40; 80 120 60 100];
+boxes_specular = [0 1];
+
+for i = 1:iterations
+Matrix1(:,1:2) = Matrix1(:,1:2) + time .*Matrix1(:,3:4);
+
+j = Matrix1(:,1) > L;
+Matrix1(j,1) = Matrix1(j,1) - L;
+
+j = Matrix1(:,1) < 0;
+Matrix1(j,1) = Matrix1(j,1) + L;
+
+j = Matrix1(:,2) > H;
+top_Value =0;
+bottom_val =0;
+
+
+if(top_Value)
+Matrix1(j,2) = 2*H - Matrix1(j,2);
+Matrix1(j,4) = -Matrix1(j,4);
+else % Diffusive
+% The electron bounces off at a random angle
+Matrix1(j,2) = H;
+b = sqrt(Matrix1(j,3).^2 + Matrix1(j,4).^2);
+angle = rand([sum(j),1])*2*pi;
+Matrix1(j,3) = b.*cos(angle);
+Matrix1(j,4) = -abs(b.*sin(angle));
+end
+
+j = Matrix1(:,2) < 0;
+
+if(bottom_val)
+Matrix1(j,2) = -Matrix1(j,2);
+Matrix1(j,4) = -Matrix1(j,4);
+else % Diffusive
+% The electron bounces off at a random angle
+Matrix1(j,2) = 0;
+b = sqrt(Matrix1(j,3).^2 + Matrix1(j,4).^2);
+angle = rand([sum(j),1])*2*pi;
+Matrix1(j,3) = b.*cos(angle);
+Matrix1(j,4) = abs(b.*sin(angle));
+end
+
+% Scatter particles
+j = rand(population_size, 1) < p_scat;
+Matrix1(j,3:4) = random(v_pdf, [sum(j),2]);
+
+Zeroes1(i) = (sum(Matrix1(:,3).^2) + sum(Matrix1(:,4).^2))*m/k/2/population_size;
+
+% Record positions for subset of particles that will be graphed
+for j=1:Population_toPlot
+Zeroes(i, (2*j):(2*j+1)) = Matrix1(j, 1:2);
+end
+
+% Update the movie every 5 iterations
+if Movie_ONOFF && mod(i,5) == 0
+figure(3);
+subplot(3,1,1);
+hold off;
+plot(Matrix1(1:Population_toPlot,1)./1e-9, Matrix1(1:Population_toPlot,2)./1e-9, 'o');
+hold on;
+
+% Plot the square
+for j=1:size(square,1)
+plot([square(j, 1) square(j, 1) square(j, 2) square(j, 2) square(j, 1)]./1e-9,...
+[square(j, 3) square(j, 4) square(j, 4) square(j, 3) square(j, 3)]./1e-9, 'k-');
+end
+
+axis([0 L/1e-9 0 H/1e-9]);
+title(sprintf('Zeroes for %d of %d Electrons (Part 3)',...
+Population_toPlot, population_size));
+xlabel('x (nm)');
+ylabel('y (nm)');
+if i > 1
+subplot(3,1,2);
+hold off;
+plot(time *(0:i-1), Zeroes1(1:i));
+axis([0 time *iterations min(Zeroes1(1:i))*0.98 max(Zeroes1)*1.02]);
+title('Semiconductor Zeroes1');
+xlabel('Time (s)');
+ylabel('Zeroes1 (K)');
+end
+
+subplot(3,1,3);
+b = sqrt(Matrix1(:,3).^2 + Matrix1(:,4).^2);
+title('Histogram of Electron Speeds');
+histogram(b);
+xlabel('Speed (m/s)');
+ylabel('# of particles');
+pause(0.03);
+end
+end
+
+
+
+subplot(3,1,3);
+b = sqrt(Matrix1(:,3).^2 + Matrix1(:,4).^2);
+title('Histogram of Electron Speeds');
+histogram(b);
+xlabel('Speed (m/s)');
+ylabel('Number of particles');
+
+% referenced from https://github.com/villetiukuvaara/elec-4700-assignment-1/blob/master/elec_4700_assignment_1.m
